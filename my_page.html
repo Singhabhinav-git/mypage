@@ -1,0 +1,589 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PyTube — Music Downloader</title>
+  <!-- Inline CSS -->
+  <style>
+    :root{
+      --bg:#0b0f19;
+      --panel:#12182b;
+      --card:#0f1426;
+      --primary:#6e87ff;
+      --accent:#61f3a6;
+      --text:#e8ecf8;
+      --muted:#9aa6c5;
+      --danger:#ff7b7b;
+      --gradient: radial-gradient(1200px 500px at 10% 10%, rgba(110,135,255,.15), rgba(97,243,166,.07) 35%, transparent 65%),
+                  radial-gradient(800px 400px at 90% 30%, rgba(97,243,166,.12), transparent 60%);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans";
+      background: var(--bg);
+      color: var(--text);
+      line-height:1.6;
+      overflow-x:hidden;
+    }
+
+    /* Glow canvas layer */
+    .backdrop{
+      position: fixed;
+      inset:0;
+      pointer-events:none;
+      background: var(--gradient);
+      filter: blur(30px);
+      opacity:.85;
+      z-index:0;
+    }
+
+    /* Header */
+    header{
+      position:sticky;
+      top:0;
+      z-index:50;
+      backdrop-filter: saturate(140%) blur(10px);
+      background: linear-gradient(to bottom, rgba(11,15,25,.75), rgba(11,15,25,.35));
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .nav{
+      max-width:1080px;
+      margin:0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:16px 20px;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      text-decoration:none;
+      color:var(--text);
+    }
+    .logo{
+      width:42px;
+      height:42px;
+      border-radius:12px;
+      background:
+        conic-gradient(from 210deg, var(--accent), var(--primary), var(--accent)) border-box;
+      box-shadow: 0 10px 30px rgba(110,135,255,.35);
+      display:grid;
+      place-items:center;
+      position:relative;
+      isolation:isolate;
+    }
+    .logo::after{
+      content:"♪";
+      font-weight:700;
+      color:#0b0f19;
+      text-shadow: 0 1px 0 rgba(255,255,255,.4);
+      transform: translateY(1px);
+    }
+    .brand h1{
+      font-size:20px;
+      margin:0;
+      letter-spacing:.2px;
+    }
+    .nav-actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .btn{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.03);
+      color:var(--text);
+      padding:10px 14px;
+      border-radius:10px;
+      cursor:pointer;
+      transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+    .btn:hover{
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(97,243,166,.18);
+      background: rgba(255,255,255,.06);
+    }
+    .btn.primary{
+      border-color: rgba(110,135,255,.6);
+      background: linear-gradient(135deg, rgba(110,135,255,.35), rgba(97,243,166,.25));
+      color:#0b0f19;
+      font-weight:600;
+      box-shadow: 0 10px 25px rgba(110,135,255,.25);
+    }
+
+    /* Hero */
+    .hero{
+      position:relative;
+      z-index:1;
+      max-width:1080px;
+      margin:40px auto;
+      padding:30px 20px 0;
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:28px;
+    }
+    .hero-left{
+      padding:24px;
+      border-radius:16px;
+      background: linear-gradient(180deg, rgba(18,24,43,.7), rgba(18,24,43,.4));
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .kicker{
+      color:var(--accent);
+      font-weight:700;
+      letter-spacing:.3px;
+      font-size:13px;
+      text-transform:uppercase;
+      margin-bottom:6px;
+    }
+    .title{
+      font-size:42px;
+      line-height:1.12;
+      margin:0 0 12px 0;
+    }
+    .subtitle{
+      color:var(--muted);
+      font-size:16px;
+      margin:0 0 20px 0;
+    }
+    .input-row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      margin-top:12px;
+    }
+    .input{
+      flex:1;
+      padding:14px 14px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      color:var(--text);
+      outline:none;
+      transition:border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+    .input:focus{
+      border-color: var(--primary);
+      box-shadow: 0 0 0 6px rgba(110,135,255,.14);
+      background: rgba(255,255,255,.06);
+    }
+    .hint{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:8px;
+    }
+    .hero-right{
+      position:relative;
+      border-radius:16px;
+      overflow:hidden;
+      display:grid;
+      place-items:center;
+      border:1px solid rgba(255,255,255,.08);
+      background:
+        radial-gradient(600px 220px at 60% 20%, rgba(110,135,255,.16), transparent 60%),
+        linear-gradient(180deg, rgba(18,24,43,.7), rgba(18,24,43,.4));
+    }
+    /* Animated equalizer bars */
+    .equalizer{
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+      height:240px;
+      padding:20px;
+    }
+    .bar{
+      width:16px;
+      border-radius:10px;
+      background: linear-gradient(180deg, var(--accent), var(--primary));
+      box-shadow: 0 10px 16px rgba(110,135,255,.3);
+      animation: bounce 1.2s ease-in-out infinite;
+      transform-origin: bottom center;
+      opacity:.95;
+    }
+    .bar:nth-child(2){animation-delay:.12s}
+    .bar:nth-child(3){animation-delay:.24s}
+    .bar:nth-child(4){animation-delay:.36s}
+    .bar:nth-child(5){animation-delay:.48s}
+    @keyframes bounce{
+      0%{height:18%}
+      25%{height:75%}
+      50%{height:36%}
+      75%{height:90%}
+      100%{height:22%}
+    }
+    .wave{
+      position:absolute;
+      left:-10%;
+      right:-10%;
+      bottom:-40px;
+      height:120px;
+      background: radial-gradient(900px 120px at 20% 0%, rgba(110,135,255,.25), transparent),
+                  radial-gradient(900px 120px at 80% 0%, rgba(97,243,166,.25), transparent);
+      filter: blur(30px);
+      transform: translateY(0);
+      animation: float 5s ease-in-out infinite;
+      opacity:.5;
+    }
+    @keyframes float{
+      0%{transform: translateY(0)}
+      50%{transform: translateY(10px)}
+      100%{transform: translateY(0)}
+    }
+
+    /* Feature grid */
+    .features{
+      max-width:1080px;
+      margin:26px auto 10px;
+      padding:0 20px 10px;
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:18px;
+    }
+    .card{
+      position:relative;
+      border-radius:14px;
+      background: linear-gradient(180deg, rgba(15,20,38,.9), rgba(15,20,38,.6));
+      border:1px solid rgba(255,255,255,.08);
+      padding:16px;
+      overflow:hidden;
+      transform: translateY(6px);
+      opacity:0;
+      transition: transform .6s cubic-bezier(.2,.8,.2,1), opacity .6s ease;
+    }
+    .card.show{
+      transform: translateY(0);
+      opacity:1;
+    }
+    .card h3{
+      margin:6px 0 6px 0;
+      font-size:16px;
+    }
+    .card p{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+    }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      font-size:12px;
+      color:#0b0f19;
+      background: linear-gradient(135deg, rgba(110,135,255,.9), rgba(97,243,166,.9));
+      padding:6px 10px;
+      border-radius:999px;
+      margin-bottom:8px;
+      box-shadow: 0 6px 16px rgba(110,135,255,.25);
+    }
+
+    /* Download list */
+    .results{
+      max-width:1080px;
+      margin:12px auto 80px;
+      padding:0 20px;
+    }
+    .result{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:12px;
+      border-radius:12px;
+      background: rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+      margin-bottom:12px;
+      transform: translateY(8px);
+      opacity:0;
+      transition: transform .5s cubic-bezier(.2,.8,.2,1), opacity .5s ease;
+    }
+    .result.show{
+      transform: translateY(0);
+      opacity:1;
+    }
+    .thumb{
+      width:54px; height:54px; border-radius:10px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display:grid; place-items:center; color:#0b0f19; font-weight:700;
+      box-shadow: 0 8px 18px rgba(110,135,255,.25);
+    }
+    .meta{
+      flex:1;
+    }
+    .title-sm{margin:0; font-weight:600}
+    .meta .sub{margin:2px 0 0; font-size:12px; color:var(--muted)}
+    .format{
+      display:flex; gap:8px; flex-wrap:wrap;
+    }
+    .pill{
+      padding:6px 10px; border-radius:999px; font-size:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+    }
+
+    /* Footer */
+    footer{
+      border-top:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+      padding:26px 20px 40px;
+    }
+    .footer-wrap{
+      max-width:1080px;
+      margin:0 auto;
+      display:flex;
+      gap:20px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+      justify-content:space-between;
+    }
+    .legal{
+      max-width:680px;
+      color:var(--muted);
+      font-size:13px;
+    }
+    .footer-links{
+      display:flex; gap:10px; flex-wrap:wrap;
+    }
+    .link{
+      font-size:13px; color:var(--text);
+      opacity:.85; text-decoration:none;
+      border-bottom:1px dashed rgba(255,255,255,.2);
+    }
+    .link:hover{opacity:1}
+
+    /* Responsive */
+    @media (max-width:980px){
+      .hero{
+        grid-template-columns: 1fr;
+      }
+      .features{
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width:640px){
+      .features{
+        grid-template-columns: 1fr;
+      }
+      .title{font-size:32px}
+    }
+
+    /* Toast */
+    .toast{
+      position: fixed;
+      left:50%;
+      bottom:20px;
+      transform: translateX(-50%) translateY(20px);
+      background: linear-gradient(135deg, rgba(110,135,255,.9), rgba(97,243,166,.9));
+      color:#0b0f19;
+      padding:10px 14px;
+      border-radius:12px;
+      box-shadow: 0 10px 24px rgba(110,135,255,.3);
+      opacity:0;
+      transition: transform .3s ease, opacity .3s ease;
+      z-index:60;
+      font-weight:600;
+    }
+    .toast.show{
+      opacity:1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header>
+    <nav class="nav">
+      <a class="brand" href="#" aria-label="PyTube Home">
+        <div class="logo" aria-hidden="true"></div>
+        <h1>PyTube</h1>
+      </a>
+      <div class="nav-actions">
+        <button class="btn" id="themeToggle">Toggle theme</button>
+        <button class="btn primary">Get PyTube</button>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-left">
+        <div class="kicker">Modern music downloader</div>
+        <h2 class="title">Download your music, clean and fast.</h2>
+        <p class="subtitle">
+          Paste a track URL to fetch metadata and download in high-quality audio formats.
+          Please respect copyrights—use PyTube for your own content or royalty-free media.
+        </p>
+        <div class="input-row">
+          <input class="input" id="urlInput" type="url" placeholder="Paste track or video URL (https://...)" aria-label="Source URL"/>
+          <button class="btn primary" id="analyzeBtn">Analyze</button>
+        </div>
+        <p class="hint">Supported: your uploads, public-domain, and royalty-free sources. Avoid infringing content.</p>
+      </div>
+
+      <div class="hero-right">
+        <div class="equalizer" aria-hidden="true">
+          <div class="bar" style="height:22%"></div>
+          <div class="bar" style="height:48%"></div>
+          <div class="bar" style="height:35%"></div>
+          <div class="bar" style="height:65%"></div>
+          <div class="bar" style="height:28%"></div>
+        </div>
+        <div class="wave" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <article class="card">
+        <span class="chip">No clutter</span>
+        <h3>Minimal, focused UI</h3>
+        <p>Built for speed and clarity with responsive layouts and smooth motion.</p>
+      </article>
+      <article class="card">
+        <span class="chip">Smart</span>
+        <h3>Auto metadata</h3>
+        <p>Reads title, artist, cover art, and lets you edit before downloading.</p>
+      </article>
+      <article class="card">
+        <span class="chip">Flexible</span>
+        <h3>Multiple formats</h3>
+        <p>Choose MP3, AAC, or WAV for compatible playback across all devices.</p>
+      </article>
+    </section>
+
+    <section class="results" id="results" aria-live="polite" aria-label="Analysis results">
+      <!-- Dynamic results injected here -->
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-wrap">
+      <div class="legal">
+        PyTube is designed for downloading content you own the rights to or media that is explicitly licensed for free use.
+        Verify licenses before downloading. We do not host copyrighted content and do not facilitate circumvention of rights.
+      </div>
+      <div class="footer-links">
+        <a class="link" href="#">Terms</a>
+        <a class="link" href="#">Privacy</a>
+        <a class="link" href="#">Support</a>
+      </div>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast">Ready to download</div>
+
+  <!-- Inline JavaScript -->
+  <script>
+    // Theme toggle (dark/light variants via hue shift)
+    const themeToggle = document.getElementById('themeToggle');
+    let light = false;
+    themeToggle.addEventListener('click',()=>{
+      light = !light;
+      document.documentElement.style.setProperty('--bg', light ? '#f5f7ff' : '#0b0f19');
+      document.documentElement.style.setProperty('--panel', light ? '#ffffff' : '#12182b');
+      document.documentElement.style.setProperty('--card', light ? '#ffffff' : '#0f1426');
+      document.documentElement.style.setProperty('--text', light ? '#0b0f19' : '#e8ecf8');
+      document.documentElement.style.setProperty('--muted', light ? '#4a5568' : '#9aa6c5');
+    });
+
+    // Intersection animations for feature cards
+    const cards = document.querySelectorAll('.card');
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting) e.target.classList.add('show');
+      });
+    }, {threshold:.2});
+    cards.forEach(c=>io.observe(c));
+
+    // Simple URL analysis mock (front-end only example)
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const urlInput = document.getElementById('urlInput');
+    const results = document.getElementById('results');
+    const toast = document.getElementById('toast');
+
+    const mockFetchMeta = async (url)=>{
+      await new Promise(r=>setTimeout(r, 800));
+      const title = 'Sample Track — PyTube Demo';
+      const artist = 'Unknown Artist';
+      const duration = '03:42';
+      return {title, artist, duration, cover:`🎵`};
+    };
+
+    const showToast = (msg)=>{
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(()=> toast.classList.remove('show'), 2200);
+    };
+
+    const createResult = (meta)=>{
+      const wrapper = document.createElement('div');
+      wrapper.className = 'result';
+      wrapper.innerHTML = `
+        <div class="thumb">${meta.cover}</div>
+        <div class="meta">
+          <p class="title-sm">${meta.title}</p>
+          <p class="sub">${meta.artist} • ${meta.duration}</p>
+          <div class="format">
+            <button class="btn" data-format="mp3">Download MP3</button>
+            <button class="btn" data-format="aac">Download AAC</button>
+            <button class="btn" data-format="wav">Download WAV</button>
+          </div>
+        </div>
+      `;
+      // Add animation
+      requestAnimationFrame(()=>{
+        wrapper.classList.add('show');
+      });
+      // Attach events
+      wrapper.querySelectorAll('.btn').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const fmt = btn.getAttribute('data-format');
+          showToast(`Preparing ${fmt}…`);
+          // Demonstration only: generate a dummy blob
+          const blob = new Blob([`PyTube demo audio (${fmt})`], {type: 'text/plain'});
+          const href = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = href;
+          a.download = `pytube-demo.${fmt}`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(()=> URL.revokeObjectURL(href), 1000);
+        });
+      });
+      return wrapper;
+    };
+
+    analyzeBtn.addEventListener('click', async ()=>{
+      const url = urlInput.value.trim();
+      if(!url){
+        showToast('Please paste a valid URL');
+        urlInput.focus();
+        return;
+      }
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = 'Analyzing…';
+      try{
+        const meta = await mockFetchMeta(url);
+        const node = createResult(meta);
+        results.prepend(node);
+        showToast('Analysis complete');
+      }catch(err){
+        showToast('Failed to analyze URL');
+      }finally{
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = 'Analyze';
+      }
+    });
+
+    // Keyboard accessibility: Enter triggers analyze
+    urlInput.addEventListener('keydown',(e)=>{
+      if(e.key === 'Enter') analyzeBtn.click();
+    });
+  </script>
+</body>
+</html>
+```
